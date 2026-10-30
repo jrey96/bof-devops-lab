@@ -30,6 +30,26 @@ var tickets = []Ticket{
 	{6, "Restauración de backup verificada", "closed", "low"},
 }
 
+// ticketsByStatus filtra por estado. Un valor vacío conserva la lista completa.
+// Un estado desconocido no es válido: el segundo resultado es false.
+func ticketsByStatus(status string) ([]Ticket, bool) {
+	if status == "" {
+		return tickets, true
+	}
+	switch status {
+	case "open", "in_progress", "closed":
+	default:
+		return nil, false
+	}
+	filtered := make([]Ticket, 0)
+	for _, ticket := range tickets {
+		if ticket.Status == status {
+			filtered = append(filtered, ticket)
+		}
+	}
+	return filtered, true
+}
+
 func writeJSON(w http.ResponseWriter, status int, value any) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.WriteHeader(status)
@@ -67,8 +87,12 @@ func newHandler() http.Handler {
 			writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
 			return
 		}
-		// Ejercicio de la sesión: agregar filtro opcional por status.
-		writeJSON(w, http.StatusOK, tickets)
+		filtered, ok := ticketsByStatus(r.URL.Query().Get("status"))
+		if !ok {
+			writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid status"})
+			return
+		}
+		writeJSON(w, http.StatusOK, filtered)
 	})
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
